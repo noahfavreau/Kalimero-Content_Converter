@@ -123,15 +123,15 @@ function bulk_convert_all_content() {
             try {
                 // Process the content
                 $new_content = $original_content;
+
+                // Step 1: Fix bullet points
+                $new_content = fix_bullet_points_safe($new_content);
                 
-                // Step 1: Handle <br> tag conversion to separate paragraphs
+                // Step 2: Handle <br> tag conversion to separate paragraphs
                 $new_content = convert_br_to_paragraphs($new_content);
                 
-                // Step 2: Clean up empty paragraphs (after BR conversion)
+                // Step 3: Clean up empty paragraphs (after BR conversion)
                 $new_content = remove_empty_paragraphs($new_content);
-                
-                // Step 3: Fix bullet points
-                $new_content = fix_bullet_points_safe($new_content);
                 
                 // Step 4: Convert to Gutenberg blocks
                 $new_content = convert_to_gutenberg_blocks($new_content);
