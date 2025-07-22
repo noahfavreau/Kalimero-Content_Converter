@@ -127,14 +127,14 @@ function bulk_convert_all_content() {
                 // Step 1: Handle <br> tag conversion to separate paragraphs
                 $new_content = convert_br_to_paragraphs($new_content);
                 
-                // Step 2: Fix bullet points
+                // Step 2: Clean up empty paragraphs (after BR conversion)
+                $new_content = remove_empty_paragraphs($new_content);
+                
+                // Step 3: Fix bullet points
                 $new_content = fix_bullet_points_safe($new_content);
                 
-                // Step 3: Convert to Gutenberg blocks
+                // Step 4: Convert to Gutenberg blocks
                 $new_content = convert_to_gutenberg_blocks($new_content);
-                
-                // Step 4: Clean up empty paragraphs
-                $new_content = remove_empty_paragraphs($new_content);
                 
                 // Step 5: Update the post
                 $result = wp_update_post(array(
