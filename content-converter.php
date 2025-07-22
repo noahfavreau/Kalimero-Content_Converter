@@ -1,9 +1,9 @@
 <?php
 /**
- * Bulk WordPress Content Converter
+ * Fixed Bulk WordPress Content Converter
+ * FIXED: Proper handling of bullet points with <br> tags
  * Processes ALL posts with 5-second delays between each post
  * Converts classic content to Gutenberg blocks and fixes bullet points
- * NEW: Handles <br> tag conversion to separate paragraphs
  * 
  * SAFETY FEATURES:
  * - Manual trigger only
@@ -53,9 +53,9 @@ function bulk_convert_all_content() {
     </style></head><body>';
     
     echo '<div class="container">';
-    echo '<h1>🚀 Bulk Content Converter</h1>';
+    echo '<h1>🚀 Fixed Bulk Content Converter</h1>';
     echo '<p class="info">Processing all posts with 5-second delays between each conversion...</p>';
-    echo '<p class="warning"><strong>NEW:</strong> Now handles &lt;br&gt; tag conversion to separate paragraphs!</p>';
+    echo '<p class="success"><strong>FIXED:</strong> Proper bullet point handling with &lt;br&gt; tags!</p>';
     
     // Flush output to browser
     ob_flush();
@@ -121,16 +121,16 @@ function bulk_convert_all_content() {
             }
             
             try {
-                // Process the content
+                // Process the content in the correct order
                 $new_content = $original_content;
 
-                // Step 1: Fix bullet points
-                $new_content = fix_bullet_points_safe($new_content);
+                // Step 1: Fix bullet points FIRST (before BR conversion)
+                $new_content = fix_bullet_points_with_br_tags($new_content);
                 
-                // Step 2: Handle <br> tag conversion to separate paragraphs
-                $new_content = convert_br_to_paragraphs($new_content);
+                // Step 2: Handle remaining <br> tags for regular paragraphs
+                $new_content = convert_remaining_br_to_paragraphs($new_content);
                 
-                // Step 3: Clean up empty paragraphs (after BR conversion)
+                // Step 3: Clean up empty paragraphs
                 $new_content = remove_empty_paragraphs($new_content);
                 
                 // Step 4: Convert to Gutenberg blocks
@@ -191,83 +191,99 @@ function bulk_convert_all_content() {
 }
 add_action('init', 'bulk_convert_all_content', 10);
 
-// NEW: Function to convert <br> tags to separate paragraphs
-function convert_br_to_paragraphs($content) {
+// NEW FIXED: Function to handle bullet points with <br> tags
+function fix_bullet_points_with_br_tags($content) {
     if (empty($content)) {
         return $content;
     }
     
-    // Debug: Show original content
     echo "<div class='debug'>";
-    echo "<strong>🔍 DEBUG - Before BR conversion:</strong><br>";
-    echo "<pre>" . htmlspecialchars(substr($content, 0, 300)) . (strlen($content) > 300 ? '...' : '') . "</pre>";
+    echo "<strong>🔍 DEBUG - Before bullet point conversion:</strong><br>";
+    echo "<pre>" . htmlspecialchars(substr($content, 0, 400)) . (strlen($content) > 400 ? '...' : '') . "</pre>";
     echo "</div>";
     ob_flush();
     flush();
     
-    // Handle content that's already wrapped in <p> tags
-    if (preg_match('/<p[^>]*>.*?<\/p>/is', $content)) {
-        // Process each paragraph individually
-        $content = preg_replace_callback('/<p([^>]*)>(.*?)<\/p>/is', function($matches) {
-            $p_attributes = $matches[1];
-            $p_content = $matches[2];
+    // Process paragraph by paragraph
+    $content = preg_replace_callback('/<p([^>]*)>(.*?)<\/p>/is', function($matches) {
+        $p_attributes = $matches[1];
+        $p_content = $matches[2];
+        
+        // Check if this paragraph contains bullet points with <br> tags
+        if (preg_match('/[•·▪▫‣⁃\*\-\+→➤➢]\s*.*?<br/ui', $p_content)) {
             
-            // Check if this paragraph contains <br> tags
-            if (strpos($p_content, '<br') !== false) {
-                // Split by <br> tags (handle both <br> and <br />)
-                $parts = preg_split('/<br\s*\/?>/i', $p_content);
-                
-                // Filter out empty parts and trim whitespace
-                $parts = array_filter(array_map('trim', $parts), function($part) {
-                    return !empty($part);
-                });
-                
-                if (count($parts) > 1) {
-                    // Convert each part to its own paragraph
-                    $new_paragraphs = array();
-                    foreach ($parts as $part) {
-                        if (!empty(trim($part))) {
-                            $new_paragraphs[] = '<p' . $p_attributes . '>' . trim($part) . '</p>';
-                        }
-                    }
-                    return implode("\n\n", $new_paragraphs);
-                }
-            }
+            // Split by <br> tags first
+            $parts = preg_split('/<br\s*\/?>/i', $p_content);
             
-            // Return original if no <br> tags found or only one part
-            return '<p' . $p_attributes . '>' . $p_content . '</p>';
-        }, $content);
-        
-    } else {
-        // Handle plain text content with <br> tags
-        // Split by <br> tags (handle both <br> and <br />)
-        $parts = preg_split('/<br\s*\/?>/i', $content);
-        
-        // Filter out empty parts and trim whitespace
-        $parts = array_filter(array_map('trim', $parts), function($part) {
-            return !empty($part);
-        });
-        
-        if (count($parts) > 1) {
-            // Wrap each part in <p> tags
-            $new_paragraphs = array();
+            $list_items = array();
+            $regular_parts = array();
+            $current_list = array();
+            $in_list = false;
+            
             foreach ($parts as $part) {
-                if (!empty(trim($part))) {
-                    $new_paragraphs[] = '<p>' . trim($part) . '</p>';
+                $part = trim($part);
+                if (empty($part)) continue;
+                
+                // Check if this part is a bullet point
+                if (preg_match('/^[•·▪▫‣⁃\*\-\+→➤➢]\s*(.+)$/u', $part, $bullet_matches)) {
+                    if (!$in_list) {
+                        // Save any regular content before starting list
+                        if (!empty($regular_parts)) {
+                            // Join regular parts and wrap in paragraph if needed
+                            $regular_content = implode('<br>', $regular_parts);
+                            if (!empty(trim($regular_content))) {
+                                $list_items[] = '<p' . $p_attributes . '>' . $regular_content . '</p>';
+                            }
+                            $regular_parts = array();
+                        }
+                        $in_list = true;
+                        $current_list = array();
+                    }
+                    $current_list[] = trim($bullet_matches[1]);
+                } else {
+                    if ($in_list) {
+                        // End the current list
+                        if (!empty($current_list)) {
+                            $list_html = "<ul>\n";
+                            foreach ($current_list as $item) {
+                                $list_html .= "<li>" . $item . "</li>\n";
+                            }
+                            $list_html .= "</ul>";
+                            $list_items[] = $list_html;
+                            $current_list = array();
+                        }
+                        $in_list = false;
+                    }
+                    $regular_parts[] = $part;
                 }
             }
-            $content = implode("\n\n", $new_paragraphs);
-        } else {
-            // Single part or no <br> tags - wrap in <p> if not already wrapped
-            if (!preg_match('/^\s*<p/i', $content)) {
-                $content = '<p>' . trim($content) . '</p>';
+            
+            // Handle end of paragraph
+            if ($in_list && !empty($current_list)) {
+                $list_html = "<ul>\n";
+                foreach ($current_list as $item) {
+                    $list_html .= "<li>" . $item . "</li>\n";
+                }
+                $list_html .= "</ul>";
+                $list_items[] = $list_html;
+            } elseif (!empty($regular_parts)) {
+                $regular_content = implode('<br>', $regular_parts);
+                if (!empty(trim($regular_content))) {
+                    $list_items[] = '<p' . $p_attributes . '>' . $regular_content . '</p>';
+                }
             }
+            
+            // Return the processed content
+            return implode("\n\n", $list_items);
         }
-    }
+        
+        // No bullet points found, return original paragraph
+        return '<p' . $p_attributes . '>' . $p_content . '</p>';
+        
+    }, $content);
     
-    // Debug: Show result
     echo "<div class='converted'>";
-    echo "<strong>✅ DEBUG - After BR conversion:</strong><br>";
+    echo "<strong>✅ DEBUG - After bullet point conversion:</strong><br>";
     echo "<pre>" . htmlspecialchars(substr($content, 0, 400)) . (strlen($content) > 400 ? '...' : '') . "</pre>";
     echo "</div>";
     ob_flush();
@@ -276,187 +292,74 @@ function convert_br_to_paragraphs($content) {
     return $content;
 }
 
-// Safe bullet point conversion function
-function fix_bullet_points_safe($content) {
+// Function to handle remaining <br> tags (for non-bullet content)
+function convert_remaining_br_to_paragraphs($content) {
     if (empty($content)) {
         return $content;
     }
     
-    // Split by double line breaks to handle paragraphs
-    $paragraphs = preg_split('/\n\s*\n/', $content);
-    $result_paragraphs = array();
-    
-    foreach ($paragraphs as $paragraph) {
-        $paragraph = trim($paragraph);
-        if (empty($paragraph)) {
-            continue;
-        }
-        
-        $lines = explode("\n", $paragraph);
-        $list_items = array();
-        $regular_content = array();
-        $in_list = false;
-        
-        foreach ($lines as $line) {
-            $line = trim($line);
-            if (empty($line)) continue;
-            
-            // Check for various bullet patterns
-            if (preg_match('/^[•·▪▫‣⁃\*\-\+→➤➢]\s*(.+)$/u', $line, $matches)) {
-                if (!$in_list) {
-                    // Save any regular content before starting list
-                    if (!empty($regular_content)) {
-                        $result_paragraphs[] = implode("\n", $regular_content);
-                        $regular_content = array();
-                    }
-                    $in_list = true;
-                    $list_items = array();
-                }
-                $list_items[] = trim($matches[1]);
-            } else {
-                if ($in_list) {
-                    // End the list and save it
-                    if (!empty($list_items)) {
-                        $list_html = "<ul>\n";
-                        foreach ($list_items as $item) {
-                            $list_html .= "<li>" . $item . "</li>\n";
-                        }
-                        $list_html .= "</ul>";
-                        $result_paragraphs[] = $list_html;
-                        $list_items = array();
-                    }
-                    $in_list = false;
-                }
-                $regular_content[] = $line;
-            }
-        }
-        
-        // Handle end of paragraph
-        if ($in_list && !empty($list_items)) {
-            $list_html = "<ul>\n";
-            foreach ($list_items as $item) {
-                $list_html .= "<li>" . $item . "</li>\n";
-            }
-            $list_html .= "</ul>";
-            $result_paragraphs[] = $list_html;
-        } elseif (!empty($regular_content)) {
-            $result_paragraphs[] = implode("\n", $regular_content);
-        }
-    }
-    
-    return implode("\n\n", $result_paragraphs);
-}
-
-// Safe Gutenberg block conversion function
-function convert_to_gutenberg_blocks($content) {
-    if (empty($content)) {
-        return $content;
-    }
-    
-    // Debug: Show original content structure
     echo "<div class='debug'>";
-    echo "<strong>🔍 DEBUG - Before Gutenberg conversion:</strong><br>";
-    echo "<pre>" . htmlspecialchars(substr($content, 0, 500)) . (strlen($content) > 500 ? '...' : '') . "</pre>";
+    echo "<strong>🔍 DEBUG - Before remaining BR conversion:</strong><br>";
+    echo "<pre>" . htmlspecialchars(substr($content, 0, 300)) . (strlen($content) > 300 ? '...' : '') . "</pre>";
     echo "</div>";
     ob_flush();
     flush();
     
-    $blocks = array();
-    
-    // Method 1: If content has wpautop formatting (WordPress auto paragraphs)
-    if (strpos($content, '<p>') !== false) {
+    // Only process paragraphs that still contain <br> tags and are not lists
+    $content = preg_replace_callback('/<p([^>]*)>(.*?)<\/p>/is', function($matches) {
+        $p_attributes = $matches[1];
+        $p_content = $matches[2];
         
-        // Split content while preserving HTML structure
-        $dom = new DOMDocument('1.0', 'UTF-8');
-        libxml_use_internal_errors(true); // Suppress HTML parsing warnings
-        $dom->loadHTML('<?xml encoding="UTF-8">' . $content, LIBXML_HTML_NOIMPLIED | LIBXML_HTML_NODEFDTD);
-        libxml_clear_errors();
-        
-        foreach ($dom->childNodes as $node) {
-            if ($node->nodeType === XML_ELEMENT_NODE) {
-                $html = $dom->saveHTML($node);
-                
-                if ($node->nodeName === 'p') {
-                    // Individual paragraph
-                    $blocks[] = "<!-- wp:paragraph -->\n" . $html . "\n<!-- /wp:paragraph -->";
-                    
-                } elseif ($node->nodeName === 'ul') {
-                    // List
-                    $blocks[] = "<!-- wp:list -->\n" . $html . "\n<!-- /wp:list -->";
-                    
-                } elseif (preg_match('/^h[1-6]$/', $node->nodeName)) {
-                    // Heading
-                    $level = intval(substr($node->nodeName, 1));
-                    $blocks[] = "<!-- wp:heading {\"level\":{$level}} -->\n" . $html . "\n<!-- /wp:heading -->";
-                    
-                } elseif ($node->nodeName === 'img') {
-                    // Image
-                    $blocks[] = "<!-- wp:image -->\n<figure class=\"wp-block-image\">" . $html . "</figure>\n<!-- /wp:image -->";
-                    
-                } else {
-                    // Other HTML elements - wrap in paragraph
-                    $blocks[] = "<!-- wp:paragraph -->\n<p>" . $html . "</p>\n<!-- /wp:paragraph -->";
-                }
-            } elseif ($node->nodeType === XML_TEXT_NODE && trim($node->nodeValue)) {
-                // Plain text node
-                $blocks[] = "<!-- wp:paragraph -->\n<p>" . trim($node->nodeValue) . "</p>\n<!-- /wp:paragraph -->";
-            }
+        // Skip if this doesn't contain <br> tags
+        if (strpos($p_content, '<br') === false) {
+            return '<p' . $p_attributes . '>' . $p_content . '</p>';
         }
         
-    } else {
-        // Method 2: Plain text content - split by double line breaks
-        $paragraphs = preg_split('/\n\s*\n/', $content);
-        
-        foreach ($paragraphs as $paragraph) {
-            $paragraph = trim($paragraph);
-            if (empty($paragraph)) {
-                continue;
-            }
-            
-            // Check for lists
-            if (preg_match('/^<ul[\s>]/', $paragraph)) {
-                $blocks[] = "<!-- wp:list -->\n" . $paragraph . "\n<!-- /wp:list -->";
-                
-            } elseif (preg_match('/^<h([1-6])[^>]*>/', $paragraph, $matches)) {
-                $level = intval($matches[1]);
-                $blocks[] = "<!-- wp:heading {\"level\":{$level}} -->\n" . $paragraph . "\n<!-- /wp:heading -->";
-                
-            } elseif (preg_match('/<img[^>]+>/i', $paragraph)) {
-                if (strpos($paragraph, '<figure') === false) {
-                    $paragraph = '<figure class="wp-block-image">' . $paragraph . '</figure>';
-                }
-                $blocks[] = "<!-- wp:image -->\n" . $paragraph . "\n<!-- /wp:image -->";
-                
-            } else {
-                // Plain text paragraph - wrap in <p> if needed
-                if (!preg_match('/^\s*<p/i', $paragraph)) {
-                    $paragraph = '<p>' . $paragraph . '</p>';
-                }
-                $blocks[] = "<!-- wp:paragraph -->\n" . $paragraph . "\n<!-- /wp:paragraph -->";
-            }
+        // Skip if this looks like it might be a processed list
+        if (preg_match('/[•·▪▫‣⁃\*\-\+→➤➢]/u', $p_content)) {
+            return '<p' . $p_attributes . '>' . $p_content . '</p>';
         }
-    }
+        
+        // Split by <br> tags
+        $parts = preg_split('/<br\s*\/?>/i', $p_content);
+        
+        // Filter out empty parts
+        $parts = array_filter(array_map('trim', $parts), function($part) {
+            return !empty($part);
+        });
+        
+        if (count($parts) > 1) {
+            // Convert each part to its own paragraph
+            $new_paragraphs = array();
+            foreach ($parts as $part) {
+                if (!empty(trim($part))) {
+                    $new_paragraphs[] = '<p' . $p_attributes . '>' . trim($part) . '</p>';
+                }
+            }
+            return implode("\n\n", $new_paragraphs);
+        }
+        
+        // Only one part or no changes needed
+        return '<p' . $p_attributes . '>' . $p_content . '</p>';
+        
+    }, $content);
     
-    $result = implode("\n\n", $blocks);
-    
-    // Debug: Show result
     echo "<div class='converted'>";
-    echo "<strong>✅ DEBUG - Final Gutenberg blocks:</strong><br>";
-    echo "<pre>" . htmlspecialchars(substr($result, 0, 500)) . (strlen($result) > 500 ? '...' : '') . "</pre>";
+    echo "<strong>✅ DEBUG - After remaining BR conversion:</strong><br>";
+    echo "<pre>" . htmlspecialchars(substr($content, 0, 400)) . (strlen($content) > 400 ? '...' : '') . "</pre>";
     echo "</div>";
     ob_flush();
     flush();
     
-    return $result;
+    return $content;
 }
 
-// NEW: Function to remove empty paragraphs
+// Enhanced empty paragraph removal
 function remove_empty_paragraphs($content) {
     if (empty($content)) {
         return $content;
     }
     
-    // Debug: Show original content
     echo "<div class='debug'>";
     echo "<strong>🧹 DEBUG - Before empty paragraph cleanup:</strong><br>";
     echo "<pre>" . htmlspecialchars(substr($content, 0, 400)) . (strlen($content) > 400 ? '...' : '') . "</pre>";
@@ -466,74 +369,56 @@ function remove_empty_paragraphs($content) {
     
     $original_content = $content;
     
-    // Pattern to match various types of empty paragraphs
+    // Enhanced patterns for empty paragraph removal
     $empty_paragraph_patterns = array(
         // Basic empty paragraphs
         '/<p[^>]*>\s*<\/p>/i',
         
-        // Paragraphs with only whitespace
-        '/<p[^>]*>\s+<\/p>/i',
+        // Paragraphs with only whitespace characters
+        '/<p[^>]*>[\s\r\n\t]*<\/p>/i',
         
-        // Paragraphs with only &nbsp; (non-breaking space)
+        // Paragraphs with only &nbsp; variations
         '/<p[^>]*>&nbsp;<\/p>/i',
         '/<p[^>]*>\s*&nbsp;\s*<\/p>/i',
-        
-        // Paragraphs with multiple &nbsp;
         '/<p[^>]*>(&nbsp;\s*)+<\/p>/i',
         
-        // Paragraphs with <br /> and &nbsp; combinations
-        '/<p[^>]*><br\s*\/?>.*?&nbsp;.*?<\/p>/i',
-        '/<p[^>]*>&nbsp;.*?<br\s*\/?>.*?<\/p>/i',
-        '/<p[^>]*><br\s*\/?\s*>&nbsp;<\/p>/i',
-        
-        // HTML spaces and whitespace combinations
-        '/<p[^>]*>(\s|&nbsp;|&#160;|&#xA0;)+<\/p>/i',
+        // HTML entities for spaces
+        '/<p[^>]*>(\s|&nbsp;|&#160;|&#xA0;|\r|\n|\t)+<\/p>/i',
         
         // Complex combinations with <br> tags
-        '/<p[^>]*>(<br\s*\/?>|\s|&nbsp;|&#160;|&#xA0;)+<\/p>/i',
+        '/<p[^>]*>(<br\s*\/?>|\s|&nbsp;|&#160;|&#xA0;|\r|\n|\t)+<\/p>/i',
         
-        // Empty Gutenberg paragraph blocks
-        '/<!-- wp:paragraph -->\s*<p[^>]*>\s*<\/p>\s*<!-- \/wp:paragraph -->/i',
-        '/<!-- wp:paragraph -->\s*<p[^>]*>(\s|&nbsp;|&#160;|&#xA0;)+<\/p>\s*<!-- \/wp:paragraph -->/i',
-        '/<!-- wp:paragraph -->\s*<p[^>]*>(<br\s*\/?>|\s|&nbsp;|&#160;|&#xA0;)+<\/p>\s*<!-- \/wp:paragraph -->/i',
+        // Multiple consecutive empty patterns
+        '/<p[^>]*><\/p>\s*<p[^>]*><\/p>/i',
     );
     
-    // Apply each pattern to remove empty paragraphs
+    $total_removed = 0;
     foreach ($empty_paragraph_patterns as $pattern) {
         $before_count = substr_count($content, '<p');
         $content = preg_replace($pattern, '', $content);
         $after_count = substr_count($content, '<p');
         
-        if ($before_count !== $after_count) {
-            echo "<div class='info'>🧹 Removed " . ($before_count - $after_count) . " empty paragraphs with pattern</div>";
+        $removed_this_round = $before_count - $after_count;
+        if ($removed_this_round > 0) {
+            $total_removed += $removed_this_round;
+            echo "<div class='info'>🧹 Removed {$removed_this_round} empty paragraphs</div>";
             ob_flush();
             flush();
         }
     }
     
-    // Clean up multiple consecutive line breaks that might be left behind
+    // Clean up multiple consecutive line breaks
     $content = preg_replace('/\n{3,}/', "\n\n", $content);
     
-    // Clean up any orphaned Gutenberg block comments
-    $content = preg_replace('/<!-- wp:paragraph -->\s*<!-- \/wp:paragraph -->/i', '', $content);
-    
-    // Trim any leading/trailing whitespace
+    // Trim whitespace
     $content = trim($content);
     
-    // Show results if changes were made
-    if ($original_content !== $content) {
+    if ($total_removed > 0) {
+        echo "<div class='success'>🎉 Total empty paragraphs removed: {$total_removed}</div>";
         echo "<div class='converted'>";
-        echo "<strong>✅ DEBUG - After empty paragraph cleanup:</strong><br>";
+        echo "<strong>✅ DEBUG - After cleanup:</strong><br>";
         echo "<pre>" . htmlspecialchars(substr($content, 0, 400)) . (strlen($content) > 400 ? '...' : '') . "</pre>";
         echo "</div>";
-        
-        // Count how many paragraphs were removed
-        $original_p_count = substr_count($original_content, '<p');
-        $final_p_count = substr_count($content, '<p');
-        if ($original_p_count > $final_p_count) {
-            echo "<div class='success'>🎉 Successfully removed " . ($original_p_count - $final_p_count) . " empty paragraphs total!</div>";
-        }
-        
         ob_flush();
         flush();
     } else {
@@ -545,20 +430,87 @@ function remove_empty_paragraphs($content) {
     return $content;
 }
 
+// Improved Gutenberg block conversion
+function convert_to_gutenberg_blocks($content) {
+    if (empty($content)) {
+        return $content;
+    }
+    
+    echo "<div class='debug'>";
+    echo "<strong>🔍 DEBUG - Before Gutenberg conversion:</strong><br>";
+    echo "<pre>" . htmlspecialchars(substr($content, 0, 500)) . (strlen($content) > 500 ? '...' : '') . "</pre>";
+    echo "</div>";
+    ob_flush();
+    flush();
+    
+    $blocks = array();
+    
+    // Split content by double newlines to separate elements
+    $elements = preg_split('/\n\s*\n/', $content);
+    
+    foreach ($elements as $element) {
+        $element = trim($element);
+        if (empty($element)) {
+            continue;
+        }
+        
+        // Detect element type and wrap appropriately
+        if (preg_match('/^<ul[\s>]/', $element)) {
+            // List block
+            $blocks[] = "<!-- wp:list -->\n" . $element . "\n<!-- /wp:list -->";
+            
+        } elseif (preg_match('/^<h([1-6])[^>]*>/', $element, $matches)) {
+            // Heading block
+            $level = intval($matches[1]);
+            $blocks[] = "<!-- wp:heading {\"level\":{$level}} -->\n" . $element . "\n<!-- /wp:heading -->";
+            
+        } elseif (preg_match('/<img[^>]+>/i', $element)) {
+            // Image block
+            if (strpos($element, '<figure') === false) {
+                $element = '<figure class="wp-block-image">' . $element . '</figure>';
+            }
+            $blocks[] = "<!-- wp:image -->\n" . $element . "\n<!-- /wp:image -->";
+            
+        } elseif (preg_match('/^<p[^>]*>/', $element)) {
+            // Paragraph block
+            $blocks[] = "<!-- wp:paragraph -->\n" . $element . "\n<!-- /wp:paragraph -->";
+            
+        } else {
+            // Plain text - wrap in paragraph
+            if (!empty(trim($element))) {
+                $blocks[] = "<!-- wp:paragraph -->\n<p>" . trim($element) . "</p>\n<!-- /wp:paragraph -->";
+            }
+        }
+    }
+    
+    $result = implode("\n\n", $blocks);
+    
+    echo "<div class='converted'>";
+    echo "<strong>✅ DEBUG - Final Gutenberg blocks:</strong><br>";
+    echo "<pre>" . htmlspecialchars(substr($result, 0, 500)) . (strlen($result) > 500 ? '...' : '') . "</pre>";
+    echo "</div>";
+    ob_flush();
+    flush();
+    
+    return $result;
+}
+
 // Add admin notice with the trigger link
 function show_converter_admin_notice() {
     if (current_user_can('administrator') && !isset($_GET['run_content_converter'])) {
         $url = admin_url() . '?run_content_converter=1';
-        echo '<div class="notice notice-info is-dismissible">';
-        echo '<p><strong>🚀 Bulk Content Converter Ready</strong></p>';
+        echo '<div class="notice notice-success is-dismissible">';
+        echo '<p><strong>🚀 FIXED Bulk Content Converter Ready</strong></p>';
         echo '<p>This will process ALL posts in your images, video, and interactives post types.</p>';
-        echo '<p><strong>🆕 NEW FEATURES:</strong></p>';
+        echo '<p><strong>🆕 FIXED FEATURES:</strong></p>';
         echo '<ul>';
-        echo '<li>Converts &lt;br&gt; tags to separate paragraphs</li>';
-        echo '<li>Removes empty paragraphs (&lt;p&gt;&lt;/p&gt;, &lt;p&gt;&amp;nbsp;&lt;/p&gt;, etc.)</li>';
+        echo '<li>✅ Properly handles bullet points with &lt;br&gt; tags</li>';
+        echo '<li>✅ No more empty paragraphs in list items</li>';
+        echo '<li>✅ Correct order of processing</li>';
+        echo '<li>✅ Enhanced empty paragraph removal</li>';
         echo '</ul>';
         echo '<p><strong>⚠️ IMPORTANT:</strong> Make sure you have a database backup before proceeding!</p>';
-        echo '<p><a href="' . esc_url($url) . '" class="button button-primary" onclick="return confirm(\'⚠️ WARNING: This will convert ALL your posts with 5-second delays between each. This process may take a long time. Make sure you have a backup! Continue?\')">Start Bulk Conversion</a></p>';
+        echo '<p><a href="' . esc_url($url) . '" class="button button-primary" onclick="return confirm(\'⚠️ WARNING: This will convert ALL your posts with 5-second delays between each. This process may take a long time. Make sure you have a backup! Continue?\')">Start Fixed Bulk Conversion</a></p>';
         echo '</div>';
     }
 }
