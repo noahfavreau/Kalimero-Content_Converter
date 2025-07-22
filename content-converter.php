@@ -481,12 +481,21 @@ function remove_empty_paragraphs($content) {
         // Paragraphs with multiple &nbsp;
         '/<p[^>]*>(&nbsp;\s*)+<\/p>/i',
         
-        // Paragraphs with HTML spaces and whitespace combinations
+        // Paragraphs with <br /> and &nbsp; combinations
+        '/<p[^>]*><br\s*\/?>.*?&nbsp;.*?<\/p>/i',
+        '/<p[^>]*>&nbsp;.*?<br\s*\/?>.*?<\/p>/i',
+        '/<p[^>]*><br\s*\/?\s*>&nbsp;<\/p>/i',
+        
+        // HTML spaces and whitespace combinations
         '/<p[^>]*>(\s|&nbsp;|&#160;|&#xA0;)+<\/p>/i',
+        
+        // Complex combinations with <br> tags
+        '/<p[^>]*>(<br\s*\/?>|\s|&nbsp;|&#160;|&#xA0;)+<\/p>/i',
         
         // Empty Gutenberg paragraph blocks
         '/<!-- wp:paragraph -->\s*<p[^>]*>\s*<\/p>\s*<!-- \/wp:paragraph -->/i',
         '/<!-- wp:paragraph -->\s*<p[^>]*>(\s|&nbsp;|&#160;|&#xA0;)+<\/p>\s*<!-- \/wp:paragraph -->/i',
+        '/<!-- wp:paragraph -->\s*<p[^>]*>(<br\s*\/?>|\s|&nbsp;|&#160;|&#xA0;)+<\/p>\s*<!-- \/wp:paragraph -->/i',
     );
     
     // Apply each pattern to remove empty paragraphs
