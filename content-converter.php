@@ -3,6 +3,7 @@
  * Bulk WordPress Content Converter
  * Processes ALL posts with 5-second delays between each post
  * Converts classic content to Gutenberg blocks and fixes bullet points
+ * NEW: Handles <br> tag conversion to separate paragraphs
  * 
  * SAFETY FEATURES:
  * - Manual trigger only
@@ -43,14 +44,18 @@ function bulk_convert_all_content() {
         .success { color: #46b450; }
         .error { color: #dc3232; }
         .info { color: #0073aa; }
+        .warning { color: #f56e28; }
         .progress { background: #0073aa; color: white; padding: 10px; margin: 10px 0; border-radius: 4px; }
         .post-item { padding: 8px 0; border-bottom: 1px solid #eee; }
         .counter { font-weight: bold; font-size: 18px; margin: 20px 0; }
+        .debug { background: #f9f9f9; padding: 10px; margin: 10px 0; border-left: 4px solid #0073aa; font-size: 12px; }
+        .converted { background: #e8f5e8; padding: 10px; margin: 10px 0; border-left: 4px solid #46b450; font-size: 12px; }
     </style></head><body>';
     
     echo '<div class="container">';
     echo '<h1>🚀 Bulk Content Converter</h1>';
     echo '<p class="info">Processing all posts with 5-second delays between each conversion...</p>';
+    echo '<p class="warning"><strong>NEW:</strong> Now handles &lt;br&gt; tag conversion to separate paragraphs!</p>';
     
     // Flush output to browser
     ob_flush();
@@ -119,13 +124,16 @@ function bulk_convert_all_content() {
                 // Process the content
                 $new_content = $original_content;
                 
-                // Step 1: Fix bullet points
+                // Step 1: Handle <br> tag conversion to separate paragraphs
+                $new_content = convert_br_to_paragraphs($new_content);
+                
+                // Step 2: Fix bullet points
                 $new_content = fix_bullet_points_safe($new_content);
                 
-                // Step 2: Convert to Gutenberg blocks
+                // Step 3: Convert to Gutenberg blocks
                 $new_content = convert_to_gutenberg_blocks($new_content);
                 
-                // Step 3: Update the post
+                // Step 4: Update the post
                 $result = wp_update_post(array(
                     'ID' => $post->ID,
                     'post_content' => $new_content
@@ -179,6 +187,91 @@ function bulk_convert_all_content() {
     exit; // Stop execution
 }
 add_action('init', 'bulk_convert_all_content', 10);
+
+// NEW: Function to convert <br> tags to separate paragraphs
+function convert_br_to_paragraphs($content) {
+    if (empty($content)) {
+        return $content;
+    }
+    
+    // Debug: Show original content
+    echo "<div class='debug'>";
+    echo "<strong>🔍 DEBUG - Before BR conversion:</strong><br>";
+    echo "<pre>" . htmlspecialchars(substr($content, 0, 300)) . (strlen($content) > 300 ? '...' : '') . "</pre>";
+    echo "</div>";
+    ob_flush();
+    flush();
+    
+    // Handle content that's already wrapped in <p> tags
+    if (preg_match('/<p[^>]*>.*?<\/p>/is', $content)) {
+        // Process each paragraph individually
+        $content = preg_replace_callback('/<p([^>]*)>(.*?)<\/p>/is', function($matches) {
+            $p_attributes = $matches[1];
+            $p_content = $matches[2];
+            
+            // Check if this paragraph contains <br> tags
+            if (strpos($p_content, '<br') !== false) {
+                // Split by <br> tags (handle both <br> and <br />)
+                $parts = preg_split('/<br\s*\/?>/i', $p_content);
+                
+                // Filter out empty parts and trim whitespace
+                $parts = array_filter(array_map('trim', $parts), function($part) {
+                    return !empty($part);
+                });
+                
+                if (count($parts) > 1) {
+                    // Convert each part to its own paragraph
+                    $new_paragraphs = array();
+                    foreach ($parts as $part) {
+                        if (!empty(trim($part))) {
+                            $new_paragraphs[] = '<p' . $p_attributes . '>' . trim($part) . '</p>';
+                        }
+                    }
+                    return implode("\n\n", $new_paragraphs);
+                }
+            }
+            
+            // Return original if no <br> tags found or only one part
+            return '<p' . $p_attributes . '>' . $p_content . '</p>';
+        }, $content);
+        
+    } else {
+        // Handle plain text content with <br> tags
+        // Split by <br> tags (handle both <br> and <br />)
+        $parts = preg_split('/<br\s*\/?>/i', $content);
+        
+        // Filter out empty parts and trim whitespace
+        $parts = array_filter(array_map('trim', $parts), function($part) {
+            return !empty($part);
+        });
+        
+        if (count($parts) > 1) {
+            // Wrap each part in <p> tags
+            $new_paragraphs = array();
+            foreach ($parts as $part) {
+                if (!empty(trim($part))) {
+                    $new_paragraphs[] = '<p>' . trim($part) . '</p>';
+                }
+            }
+            $content = implode("\n\n", $new_paragraphs);
+        } else {
+            // Single part or no <br> tags - wrap in <p> if not already wrapped
+            if (!preg_match('/^\s*<p/i', $content)) {
+                $content = '<p>' . trim($content) . '</p>';
+            }
+        }
+    }
+    
+    // Debug: Show result
+    echo "<div class='converted'>";
+    echo "<strong>✅ DEBUG - After BR conversion:</strong><br>";
+    echo "<pre>" . htmlspecialchars(substr($content, 0, 400)) . (strlen($content) > 400 ? '...' : '') . "</pre>";
+    echo "</div>";
+    ob_flush();
+    flush();
+    
+    return $content;
+}
 
 // Safe bullet point conversion function
 function fix_bullet_points_safe($content) {
@@ -258,8 +351,8 @@ function convert_to_gutenberg_blocks($content) {
     }
     
     // Debug: Show original content structure
-    echo "<div style='background:#f9f9f9; padding:10px; margin:10px 0; border-left:4px solid #0073aa;'>";
-    echo "<strong>🔍 DEBUG - Original content:</strong><br>";
+    echo "<div class='debug'>";
+    echo "<strong>🔍 DEBUG - Before Gutenberg conversion:</strong><br>";
     echo "<pre>" . htmlspecialchars(substr($content, 0, 500)) . (strlen($content) > 500 ? '...' : '') . "</pre>";
     echo "</div>";
     ob_flush();
@@ -272,7 +365,9 @@ function convert_to_gutenberg_blocks($content) {
         
         // Split content while preserving HTML structure
         $dom = new DOMDocument('1.0', 'UTF-8');
+        libxml_use_internal_errors(true); // Suppress HTML parsing warnings
         $dom->loadHTML('<?xml encoding="UTF-8">' . $content, LIBXML_HTML_NOIMPLIED | LIBXML_HTML_NODEFDTD);
+        libxml_clear_errors();
         
         foreach ($dom->childNodes as $node) {
             if ($node->nodeType === XML_ELEMENT_NODE) {
@@ -330,8 +425,11 @@ function convert_to_gutenberg_blocks($content) {
                 $blocks[] = "<!-- wp:image -->\n" . $paragraph . "\n<!-- /wp:image -->";
                 
             } else {
-                // Plain text paragraph
-                $blocks[] = "<!-- wp:paragraph -->\n<p>" . $paragraph . "</p>\n<!-- /wp:paragraph -->";
+                // Plain text paragraph - wrap in <p> if needed
+                if (!preg_match('/^\s*<p/i', $paragraph)) {
+                    $paragraph = '<p>' . $paragraph . '</p>';
+                }
+                $blocks[] = "<!-- wp:paragraph -->\n" . $paragraph . "\n<!-- /wp:paragraph -->";
             }
         }
     }
@@ -339,8 +437,8 @@ function convert_to_gutenberg_blocks($content) {
     $result = implode("\n\n", $blocks);
     
     // Debug: Show result
-    echo "<div style='background:#e8f5e8; padding:10px; margin:10px 0; border-left:4px solid #46b450;'>";
-    echo "<strong>✅ DEBUG - Converted to:</strong><br>";
+    echo "<div class='converted'>";
+    echo "<strong>✅ DEBUG - Final Gutenberg blocks:</strong><br>";
     echo "<pre>" . htmlspecialchars(substr($result, 0, 500)) . (strlen($result) > 500 ? '...' : '') . "</pre>";
     echo "</div>";
     ob_flush();
@@ -356,6 +454,7 @@ function show_converter_admin_notice() {
         echo '<div class="notice notice-info is-dismissible">';
         echo '<p><strong>🚀 Bulk Content Converter Ready</strong></p>';
         echo '<p>This will process ALL posts in your images, video, and interactives post types.</p>';
+        echo '<p><strong>🆕 NEW FEATURE:</strong> Now converts &lt;br&gt; tags to separate paragraphs!</p>';
         echo '<p><strong>⚠️ IMPORTANT:</strong> Make sure you have a database backup before proceeding!</p>';
         echo '<p><a href="' . esc_url($url) . '" class="button button-primary" onclick="return confirm(\'⚠️ WARNING: This will convert ALL your posts with 5-second delays between each. This process may take a long time. Make sure you have a backup! Continue?\')">Start Bulk Conversion</a></p>';
         echo '</div>';
