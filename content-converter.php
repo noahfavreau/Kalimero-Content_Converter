@@ -496,15 +496,8 @@ function show_converter_admin_notice() {
     if (current_user_can('administrator') && !isset($_GET['run_content_converter'])) {
         $url = admin_url() . '?run_content_converter=1';
         echo '<div class="notice notice-success is-dismissible">';
-        echo '<p><strong>🚀 FIXED Bulk Content Converter Ready</strong></p>';
-        echo '<p>This will process ALL posts in your images, video, and interactives post types.</p>';
-        echo '<p><strong>🆕 FIXED FEATURES:</strong></p>';
-        echo '<ul>';
-        echo '<li>✅ Properly handles bullet points with &lt;br&gt; tags</li>';
-        echo '<li>✅ No more empty paragraphs in list items</li>';
-        echo '<li>✅ Correct order of processing</li>';
-        echo '<li>✅ Enhanced empty paragraph removal</li>';
-        echo '</ul>';
+        echo '<p><strong>Bulk Content Converter</strong></p>';
+        echo '<p>This will process ALL posts.</p>';
         echo '<p><strong>⚠️ IMPORTANT:</strong> Make sure you have a database backup before proceeding!</p>';
         echo '<p><a href="' . esc_url($url) . '" class="button button-primary" onclick="return confirm(\'⚠️ WARNING: This will convert ALL your posts with 5-second delays between each. This process may take a long time. Make sure you have a backup! Continue?\')">Start Fixed Bulk Conversion</a></p>';
         echo '</div>';
