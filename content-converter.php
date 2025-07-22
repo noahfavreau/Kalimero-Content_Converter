@@ -133,7 +133,10 @@ function bulk_convert_all_content() {
                 // Step 3: Convert to Gutenberg blocks
                 $new_content = convert_to_gutenberg_blocks($new_content);
                 
-                // Step 4: Update the post
+                // Step 4: Clean up empty paragraphs
+                $new_content = remove_empty_paragraphs($new_content);
+                
+                // Step 5: Update the post
                 $result = wp_update_post(array(
                     'ID' => $post->ID,
                     'post_content' => $new_content
@@ -447,6 +450,92 @@ function convert_to_gutenberg_blocks($content) {
     return $result;
 }
 
+// NEW: Function to remove empty paragraphs
+function remove_empty_paragraphs($content) {
+    if (empty($content)) {
+        return $content;
+    }
+    
+    // Debug: Show original content
+    echo "<div class='debug'>";
+    echo "<strong>🧹 DEBUG - Before empty paragraph cleanup:</strong><br>";
+    echo "<pre>" . htmlspecialchars(substr($content, 0, 400)) . (strlen($content) > 400 ? '...' : '') . "</pre>";
+    echo "</div>";
+    ob_flush();
+    flush();
+    
+    $original_content = $content;
+    
+    // Pattern to match various types of empty paragraphs
+    $empty_paragraph_patterns = array(
+        // Basic empty paragraphs
+        '/<p[^>]*>\s*<\/p>/i',
+        
+        // Paragraphs with only whitespace
+        '/<p[^>]*>\s+<\/p>/i',
+        
+        // Paragraphs with only &nbsp; (non-breaking space)
+        '/<p[^>]*>&nbsp;<\/p>/i',
+        '/<p[^>]*>\s*&nbsp;\s*<\/p>/i',
+        
+        // Paragraphs with multiple &nbsp;
+        '/<p[^>]*>(&nbsp;\s*)+<\/p>/i',
+        
+        // Paragraphs with HTML spaces and whitespace combinations
+        '/<p[^>]*>(\s|&nbsp;|&#160;|&#xA0;)+<\/p>/i',
+        
+        // Empty Gutenberg paragraph blocks
+        '/<!-- wp:paragraph -->\s*<p[^>]*>\s*<\/p>\s*<!-- \/wp:paragraph -->/i',
+        '/<!-- wp:paragraph -->\s*<p[^>]*>(\s|&nbsp;|&#160;|&#xA0;)+<\/p>\s*<!-- \/wp:paragraph -->/i',
+    );
+    
+    // Apply each pattern to remove empty paragraphs
+    foreach ($empty_paragraph_patterns as $pattern) {
+        $before_count = substr_count($content, '<p');
+        $content = preg_replace($pattern, '', $content);
+        $after_count = substr_count($content, '<p');
+        
+        if ($before_count !== $after_count) {
+            echo "<div class='info'>🧹 Removed " . ($before_count - $after_count) . " empty paragraphs with pattern</div>";
+            ob_flush();
+            flush();
+        }
+    }
+    
+    // Clean up multiple consecutive line breaks that might be left behind
+    $content = preg_replace('/\n{3,}/', "\n\n", $content);
+    
+    // Clean up any orphaned Gutenberg block comments
+    $content = preg_replace('/<!-- wp:paragraph -->\s*<!-- \/wp:paragraph -->/i', '', $content);
+    
+    // Trim any leading/trailing whitespace
+    $content = trim($content);
+    
+    // Show results if changes were made
+    if ($original_content !== $content) {
+        echo "<div class='converted'>";
+        echo "<strong>✅ DEBUG - After empty paragraph cleanup:</strong><br>";
+        echo "<pre>" . htmlspecialchars(substr($content, 0, 400)) . (strlen($content) > 400 ? '...' : '') . "</pre>";
+        echo "</div>";
+        
+        // Count how many paragraphs were removed
+        $original_p_count = substr_count($original_content, '<p');
+        $final_p_count = substr_count($content, '<p');
+        if ($original_p_count > $final_p_count) {
+            echo "<div class='success'>🎉 Successfully removed " . ($original_p_count - $final_p_count) . " empty paragraphs total!</div>";
+        }
+        
+        ob_flush();
+        flush();
+    } else {
+        echo "<div class='info'>ℹ️ No empty paragraphs found to remove</div>";
+        ob_flush();
+        flush();
+    }
+    
+    return $content;
+}
+
 // Add admin notice with the trigger link
 function show_converter_admin_notice() {
     if (current_user_can('administrator') && !isset($_GET['run_content_converter'])) {
@@ -454,7 +543,11 @@ function show_converter_admin_notice() {
         echo '<div class="notice notice-info is-dismissible">';
         echo '<p><strong>🚀 Bulk Content Converter Ready</strong></p>';
         echo '<p>This will process ALL posts in your images, video, and interactives post types.</p>';
-        echo '<p><strong>🆕 NEW FEATURE:</strong> Now converts &lt;br&gt; tags to separate paragraphs!</p>';
+        echo '<p><strong>🆕 NEW FEATURES:</strong></p>';
+        echo '<ul>';
+        echo '<li>Converts &lt;br&gt; tags to separate paragraphs</li>';
+        echo '<li>Removes empty paragraphs (&lt;p&gt;&lt;/p&gt;, &lt;p&gt;&amp;nbsp;&lt;/p&gt;, etc.)</li>';
+        echo '</ul>';
         echo '<p><strong>⚠️ IMPORTANT:</strong> Make sure you have a database backup before proceeding!</p>';
         echo '<p><a href="' . esc_url($url) . '" class="button button-primary" onclick="return confirm(\'⚠️ WARNING: This will convert ALL your posts with 5-second delays between each. This process may take a long time. Make sure you have a backup! Continue?\')">Start Bulk Conversion</a></p>';
         echo '</div>';
