@@ -1,17 +1,13 @@
 <?php
 /**
- * Fixed Bulk WordPress Content Converter
- * FIXED: Proper handling of bullet points with <br> tags
- * Processes ALL posts with 5-second delays between each post
- * Converts classic content to Gutenberg blocks and fixes bullet points
- * 
- * SAFETY FEATURES:
- * - Manual trigger only
- * - Administrator access only
- * - 5-second delay between posts
- * - Real-time progress display
- * - Skip already converted posts
- * - Error handling and logging
+ * Bulk WordPress Content Converter
+ *
+ * This script provides administrators with a tool to bulk convert posts from the
+ * legacy Classic Editor format to the modern Gutenberg block structure. It is
+ * designed to be executed manually and includes several safety mechanisms to
+ * ensure a smooth and safe migration process.
+ *
+ * @author Noah Favreau
  */
 
 // Increase execution time and memory for bulk processing
