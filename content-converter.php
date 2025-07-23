@@ -72,9 +72,10 @@ function bulk_convert_all_content()
         $posts = get_posts(array(
             'post_type' => $post_type,
             'post_status' => array('publish', 'draft', 'private'),
-            'numberposts' => 10, // Get ALL posts
+            'numberposts' => 1, // Get ALL posts
             'orderby' => 'ID',
-            'order' => 'ASC'
+            'order' => 'ASC',
+            'include' => array(8906)
         ));
 
         echo "<p class='info'>Found " . count($posts) . " posts to process</p>";
@@ -121,6 +122,10 @@ function bulk_convert_all_content()
                 // Process the content in the correct order
                 $new_content = $original_content;
 
+                error_log('Debut');
+                error_log(print_r($new_content,true));
+                
+
                 // Step 1: Fix bullet points FIRST (before BR conversion)
                 $new_content = fix_bullet_points_with_br_tags($new_content);
 
@@ -132,7 +137,9 @@ function bulk_convert_all_content()
 
                 // Step 4: Convert to Gutenberg blocks
                 $new_content = convert_to_gutenberg_blocks($new_content);
-
+                
+                error_log('Fin');
+                error_log(print_r($new_content,true));
                 // Step 5: Update the post
                 $result = wp_update_post(array(
                     'ID' => $post->ID,
