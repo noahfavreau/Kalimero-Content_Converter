@@ -49,9 +49,8 @@ function bulk_convert_all_content() {
     </style></head><body>';
     
     echo '<div class="container">';
-    echo '<h1>🚀 Fixed Bulk Content Converter</h1>';
+    echo '<h1>Bulk Content Converter</h1>';
     echo '<p class="info">Processing all posts with 5-second delays between each conversion...</p>';
-    echo '<p class="success"><strong>FIXED:</strong> Proper bullet point handling with &lt;br&gt; tags!</p>';
     
     // Flush output to browser
     ob_flush();
@@ -63,7 +62,7 @@ function bulk_convert_all_content() {
     $total_errors = 0;
     
     foreach ($post_types as $post_type) {
-        echo "<div class='progress'>📁 Processing Post Type: <strong>{$post_type}</strong></div>";
+        echo "<div class='progress'>Processing Post Type: <strong>{$post_type}</strong></div>";
         ob_flush();
         flush();
         
@@ -98,7 +97,7 @@ function bulk_convert_all_content() {
             
             // Skip if empty content
             if (empty(trim($original_content))) {
-                echo "<span class='info'>⏭️ Skipped (empty content)</span>";
+                echo "<span class='info'>Skipped (empty content)</span>";
                 $total_skipped++;
                 echo "</div>";
                 ob_flush();
@@ -108,7 +107,7 @@ function bulk_convert_all_content() {
             
             // Skip if already has Gutenberg blocks
             if (strpos($original_content, '<!-- wp:') !== false) {
-                echo "<span class='info'>⏭️ Skipped (already has blocks)</span>";
+                echo "<span class='info'>Skipped (already has blocks)</span>";
                 $total_skipped++;
                 echo "</div>";
                 ob_flush();
@@ -139,15 +138,15 @@ function bulk_convert_all_content() {
                 ), true); // Return WP_Error on failure
                 
                 if (is_wp_error($result)) {
-                    echo "<span class='error'>❌ Failed: " . $result->get_error_message() . "</span>";
+                    echo "<span class='error'>Failed: " . $result->get_error_message() . "</span>";
                     $total_errors++;
                 } else {
-                    echo "<span class='success'>✅ Converted successfully</span>";
+                    echo "<span class='success'>Converted successfully</span>";
                     $total_converted++;
                 }
                 
             } catch (Exception $e) {
-                echo "<span class='error'>❌ Error: " . $e->getMessage() . "</span>";
+                echo "<span class='error'>Error: " . $e->getMessage() . "</span>";
                 $total_errors++;
             }
             
@@ -157,7 +156,7 @@ function bulk_convert_all_content() {
             
             // 5-second delay between posts (except for the last one)
             if ($post_number < $total_posts) {
-                echo "<p class='info'>⏳ Waiting 5 seconds before next post...</p>";
+                echo "<p class='info'>Waiting 5 seconds before next post...</p>";
                 ob_flush();
                 flush();
                 sleep(5);
@@ -171,11 +170,11 @@ function bulk_convert_all_content() {
     
     // Final summary
     echo "<div class='counter'>";
-    echo "<h2>🎉 Conversion Complete!</h2>";
-    echo "<p><strong>✅ Successfully converted:</strong> {$total_converted} posts</p>";
-    echo "<p><strong>⏭️ Skipped:</strong> {$total_skipped} posts</p>";
-    echo "<p><strong>❌ Errors:</strong> {$total_errors} posts</p>";
-    echo "<p><strong>📊 Total processed:</strong> " . ($total_converted + $total_skipped + $total_errors) . " posts</p>";
+    echo "<h2>Conversion Complete!</h2>";
+    echo "<p><strong>Successfully converted:</strong> {$total_converted} posts</p>";
+    echo "<p><strong>Skipped:</strong> {$total_skipped} posts</p>";
+    echo "<p><strong>Errors:</strong> {$total_errors} posts</p>";
+    echo "<p><strong>Total processed:</strong> " . ($total_converted + $total_skipped + $total_errors) . " posts</p>";
     echo "</div>";
     
     echo '<p><a href="' . admin_url() . '">← Back to Dashboard</a></p>';
@@ -187,7 +186,7 @@ function bulk_convert_all_content() {
 }
 add_action('init', 'bulk_convert_all_content', 10);
 
-// NEW FIXED: Function to handle bullet points with <br> tags
+// Function to handle bullet points with <br> tags
 function fix_bullet_points_with_br_tags($content) {
     if (empty($content)) {
         return $content;
@@ -279,7 +278,7 @@ function fix_bullet_points_with_br_tags($content) {
     }, $content);
     
     echo "<div class='converted'>";
-    echo "<strong>✅ DEBUG - After bullet point conversion:</strong><br>";
+    echo "<strong>DEBUG - After bullet point conversion:</strong><br>";
     echo "<pre>" . htmlspecialchars(substr($content, 0, 400)) . (strlen($content) > 400 ? '...' : '') . "</pre>";
     echo "</div>";
     ob_flush();
@@ -341,7 +340,7 @@ function convert_remaining_br_to_paragraphs($content) {
     }, $content);
     
     echo "<div class='converted'>";
-    echo "<strong>✅ DEBUG - After remaining BR conversion:</strong><br>";
+    echo "<strong>DEBUG - After remaining BR conversion:</strong><br>";
     echo "<pre>" . htmlspecialchars(substr($content, 0, 400)) . (strlen($content) > 400 ? '...' : '') . "</pre>";
     echo "</div>";
     ob_flush();
@@ -357,7 +356,7 @@ function remove_empty_paragraphs($content) {
     }
     
     echo "<div class='debug'>";
-    echo "<strong>🧹 DEBUG - Before empty paragraph cleanup:</strong><br>";
+    echo "<strong>DEBUG - Before empty paragraph cleanup:</strong><br>";
     echo "<pre>" . htmlspecialchars(substr($content, 0, 400)) . (strlen($content) > 400 ? '...' : '') . "</pre>";
     echo "</div>";
     ob_flush();
@@ -397,7 +396,7 @@ function remove_empty_paragraphs($content) {
         $removed_this_round = $before_count - $after_count;
         if ($removed_this_round > 0) {
             $total_removed += $removed_this_round;
-            echo "<div class='info'>🧹 Removed {$removed_this_round} empty paragraphs</div>";
+            echo "<div class='info'>Removed {$removed_this_round} empty paragraphs</div>";
             ob_flush();
             flush();
         }
@@ -410,15 +409,15 @@ function remove_empty_paragraphs($content) {
     $content = trim($content);
     
     if ($total_removed > 0) {
-        echo "<div class='success'>🎉 Total empty paragraphs removed: {$total_removed}</div>";
+        echo "<div class='success'>Total empty paragraphs removed: {$total_removed}</div>";
         echo "<div class='converted'>";
-        echo "<strong>✅ DEBUG - After cleanup:</strong><br>";
+        echo "<strong>DEBUG - After cleanup:</strong><br>";
         echo "<pre>" . htmlspecialchars(substr($content, 0, 400)) . (strlen($content) > 400 ? '...' : '') . "</pre>";
         echo "</div>";
         ob_flush();
         flush();
     } else {
-        echo "<div class='info'>ℹ️ No empty paragraphs found to remove</div>";
+        echo "<div class='info'>No empty paragraphs found to remove</div>";
         ob_flush();
         flush();
     }
@@ -433,7 +432,7 @@ function convert_to_gutenberg_blocks($content) {
     }
     
     echo "<div class='debug'>";
-    echo "<strong>🔍 DEBUG - Before Gutenberg conversion:</strong><br>";
+    echo "<strong>DEBUG - Before Gutenberg conversion:</strong><br>";
     echo "<pre>" . htmlspecialchars(substr($content, 0, 500)) . (strlen($content) > 500 ? '...' : '') . "</pre>";
     echo "</div>";
     ob_flush();
@@ -482,7 +481,7 @@ function convert_to_gutenberg_blocks($content) {
     $result = implode("\n\n", $blocks);
     
     echo "<div class='converted'>";
-    echo "<strong>✅ DEBUG - Final Gutenberg blocks:</strong><br>";
+    echo "<strong>DEBUG - Final Gutenberg blocks:</strong><br>";
     echo "<pre>" . htmlspecialchars(substr($result, 0, 500)) . (strlen($result) > 500 ? '...' : '') . "</pre>";
     echo "</div>";
     ob_flush();
@@ -498,8 +497,8 @@ function show_converter_admin_notice() {
         echo '<div class="notice notice-success is-dismissible">';
         echo '<p><strong>Bulk Content Converter</strong></p>';
         echo '<p>This will process ALL posts.</p>';
-        echo '<p><strong>⚠️ IMPORTANT:</strong> Make sure you have a database backup before proceeding!</p>';
-        echo '<p><a href="' . esc_url($url) . '" class="button button-primary" onclick="return confirm(\'⚠️ WARNING: This will convert ALL your posts with 5-second delays between each. This process may take a long time. Make sure you have a backup! Continue?\')">Start Fixed Bulk Conversion</a></p>';
+        echo '<p><strong>IMPORTANT:</strong> Make sure you have a database backup before proceeding!</p>';
+        echo '<p><a href="' . esc_url($url) . '" class="button button-primary" onclick="return confirm(\'WARNING: This will convert ALL your posts with 5-second delays between each. This process may take a long time. Make sure you have a backup! Continue?\')">Start Fixed Bulk Conversion</a></p>';
         echo '</div>';
     }
 }
