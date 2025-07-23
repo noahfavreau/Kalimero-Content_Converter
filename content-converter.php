@@ -72,7 +72,7 @@ function bulk_convert_all_content()
         $posts = get_posts(array(
             'post_type' => $post_type,
             'post_status' => array('publish', 'draft', 'private'),
-            'numberposts' => -1, // Get ALL posts
+            'numberposts' => 10, // Get ALL posts
             'orderby' => 'ID',
             'order' => 'ASC'
         ));
