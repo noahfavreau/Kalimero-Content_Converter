@@ -138,13 +138,17 @@ function bulk_convert_all_content()
                 // Step 4: Convert to Gutenberg blocks
                 $new_content = convert_to_gutenberg_blocks($new_content);
 
-                $new_content = preg_replace('/\s*:\s*/u', '&nbsp;:', $content);
- 
-
-                $new_content = preg_replace('/«\s*/u', '«&nbsp;', $content);
- 
-
-                $new_content = preg_replace('/\s*»/u', '&nbsp;»', $content);
+                $new_content= preg_replace_callback('/(?<!wp)(\s*):(\s*)/u', function ($matches) {
+                            return '&nbsp;:';
+                        }, $new_content);
+                 
+                $new_content = preg_replace_callback('/(?<!wp)«\s*/u', function ($matches) {
+                            return '«&nbsp;';
+                        }, $new_content);
+                 
+                $new_content= preg_replace_callback('/(?<!wp)\s*»/u', function ($matches) {
+                            return '&nbsp;»';
+                        }, $new_content);
                 
                 error_log('Fin');
                 error_log(print_r($new_content,true));
