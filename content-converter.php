@@ -58,7 +58,7 @@ function bulk_convert_all_content()
     ob_flush();
     flush();
 
-    $post_types = array('image', 'video', 'interactive');
+    $post_types = array('image', 'video', 'document');
     $total_converted = 0;
     $total_skipped = 0;
     $total_errors = 0;
