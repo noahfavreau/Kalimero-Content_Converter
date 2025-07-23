@@ -196,7 +196,7 @@ function fix_bullet_points_with_br_tags($content)
     }
 
     echo "<div class='debug'>";
-    echo "<strong>🔍 DEBUG - Before bullet point conversion:</strong><br>";
+    echo "<strong>DEBUG - Before bullet point conversion:</strong><br>";
     echo "<pre>" . htmlspecialchars(substr($content, 0, 400)) . (strlen($content) > 400 ? '...' : '') . "</pre>";
     echo "</div>";
     ob_flush();
