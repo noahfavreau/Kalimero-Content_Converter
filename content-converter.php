@@ -299,7 +299,7 @@ function convert_remaining_br_to_paragraphs($content)
     }
 
     echo "<div class='debug'>";
-    echo "<strong>🔍 DEBUG - Before remaining BR conversion:</strong><br>";
+    echo "<strong>DEBUG - Before remaining BR conversion:</strong><br>";
     echo "<pre>" . htmlspecialchars(substr($content, 0, 300)) . (strlen($content) > 300 ? '...' : '') . "</pre>";
     echo "</div>";
     ob_flush();
