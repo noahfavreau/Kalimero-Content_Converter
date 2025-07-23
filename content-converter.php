@@ -139,7 +139,7 @@ function bulk_convert_all_content()
                 $new_content = convert_to_gutenberg_blocks($new_content);
 
                 $new_content= preg_replace_callback('/(?<!wp)(\s*):(\s*)/u', function ($matches) {
-                            return '&nbsp;:';
+                            return '&nbsp;: ';
                         }, $new_content);
                  
                 $new_content = preg_replace_callback('/(?<!wp)«\s*/u', function ($matches) {
